@@ -112,7 +112,10 @@ def scan_folder(dir: str, api_key: str):
   try:
     json_resp = r.json()
   except JSONDecodeError:
+
     print("The SCANOSS API returned an invalid JSON")
+    with open('bad_json.txt','w') as f:
+      f.write(r.text)
     exit(1)
   # Decode file names
   decoded_json = {files_conversion[k]: v for (k, v) in json_resp.items()}
