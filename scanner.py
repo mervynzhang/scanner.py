@@ -22,7 +22,7 @@ FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules"]
 
 
-SCANOSS_SCAN_URL = "https://api.scanoss.co.uk/api/scan/direct"
+SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else "https://api.scanoss.co.uk/api/scan/direct"
 SCANOSS_KEY_FILE = ".scanoss-key"
 
 
@@ -42,8 +42,9 @@ def main():
     print_usage()
 
     # Check for SCANOSS Key
-  home = str(Path.home())
-  scanoss_keyfile = "%s/%s" % (home, SCANOSS_KEY_FILE)
+  home = Path.home()
+  
+  scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
 
   if not os.path.isfile(scanoss_keyfile):
     print("Please enter a valid SCANOSS API Key: ")
@@ -94,7 +95,7 @@ def scan_folder(dir: str, api_key: str):
             contents = f.read()
             wfp += wfp_for_file(files_index, contents.encode())
         except:
-          print("Trying to scan a binary file: %s" % path)
+          print("Ignoring binary file: %s" % path, sys.exc_info()[0])
 
   with open('scan_wfp', 'w') as f:
     f.write(wfp)
@@ -261,7 +262,6 @@ def wfp_for_file(file: str, contents: bytes) -> str:
             # hash in each window
             crc = crc32((min_hash).to_bytes(4, byteorder='little'))
             crc_hex = '{:08x}'.format(crc)
-
             if last_line != line:
               if output:
                 wfp += output + '\n'
