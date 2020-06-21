@@ -25,9 +25,11 @@ FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules"]
 SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else "https://api.scanoss.co.uk/api/scan/direct"
 SCANOSS_KEY_FILE = ".scanoss-key"
 
+SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
 def print_usage():
-  print("USAGE: scanner.py DIR")
+  print("USAGE: scanner.py DIR [--ignore|identify|blacklist SBOM.json]\n")
+  print("Where SBOM.json is the path to a valid CycloneDX or SPDX 2.2 document")
   exit(1)
 
 
@@ -55,9 +57,18 @@ def main():
   # Read key from file
   with open(scanoss_keyfile) as f:
     api_key = f.readline().strip()
-
+  # Check if scan type has been declared
+  if len(sys.argv) == 4:
+    sbom_path = sys.argv[3]
+    scantype = sys.argv[2][2:]
+    if scantype not in SCAN_TYPES:
+      print("ERROR: Invalid scan type: ", scantype)
+      print_usage()
+    print("scan type: %s, SBOM path: %s" % (scantype, sbom_path))
+  
   # Perform the scan
-  scan_folder(scan_dir, api_key)
+
+  scan_folder(scan_dir, api_key, scantype, sbom_path)
 
 
 def valid_folder(folder):
@@ -67,7 +78,7 @@ def valid_folder(folder):
   return True
 
 
-def scan_folder(dir: str, api_key: str):
+def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
   """ Performs a scan of the folder given
 
   Parameters
@@ -76,6 +87,10 @@ def scan_folder(dir: str, api_key: str):
     The folder containing the files to be scanned
   api_key : str
     A valid SCANOSS API key
+  scantype: str
+    A valid scan type (ignore, identify, blacklist)
+  sbom_path: str
+    A path to a valid CycloneDX or SPDX 2.2 JSON document.
   """
 
   wfp = ''
@@ -97,14 +112,19 @@ def scan_folder(dir: str, api_key: str):
         except:
           print("Ignoring binary file: %s" % path, sys.exc_info()[0])
 
-  with open('scan_wfp', 'w') as f:
+  with open('scan.wfp', 'w') as f:
     f.write(wfp)
-  print("Saved generated WFP File in 'scan_wfp'")
+  form_data = {}
+  if scantype:
+    with open(sbom_path) as f:
+      sbom = f.read()
+    form_data = {'type' : scantype, 'assets': sbom}
+  print("Saved generated WFP File in 'scan.wfp'")
   headers = {'X-Session': api_key}
   scan_files = {
       'file': ("%s.wfp" % uuid.uuid1().hex, wfp)}
-
-  r = requests.post(SCANOSS_SCAN_URL, files=scan_files,
+  
+  r = requests.post(SCANOSS_SCAN_URL, files=scan_files, data=form_data,
                     headers=headers)
   if r.status_code >= 400:
     print("ERROR: The SCANOSS API returned the following error: HTTP %d, %s" %
