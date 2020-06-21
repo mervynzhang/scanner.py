@@ -28,7 +28,7 @@ SCANOSS_KEY_FILE = ".scanoss-key"
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
 def print_usage():
-  print("USAGE: scanner.py DIR [--ignore|identify|blacklist SBOM.json]\n")
+  print("USAGE: scanner.py DIR [--ignore|identify|blacklist SBOM.json]")
   print("Where SBOM.json is the path to a valid CycloneDX or SPDX 2.2 document")
   exit(1)
 
@@ -64,10 +64,10 @@ def main():
     if scantype not in SCAN_TYPES:
       print("ERROR: Invalid scan type: ", scantype)
       print_usage()
+      exit(1)
     print("scan type: %s, SBOM path: %s" % (scantype, sbom_path))
   
   # Perform the scan
-
   scan_folder(scan_dir, api_key, scantype, sbom_path)
 
 
