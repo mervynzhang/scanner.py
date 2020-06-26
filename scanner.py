@@ -7,6 +7,7 @@
 from pathlib import Path
 import json
 from json.decoder import JSONDecodeError
+from binaryornot.check import is_binary
 import requests
 import os
 import sys
@@ -17,7 +18,7 @@ from crc32c import crc32
 
 # List of extensions that are ignored
 FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "gif", "md", "test", "cfg", "pdf",
-                "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "class", "pyc", "whl", "gz", "zip", "o", "ico"]
+                "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico"]
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules"]
 
@@ -58,6 +59,8 @@ def main():
   with open(scanoss_keyfile) as f:
     api_key = f.readline().strip()
   # Check if scan type has been declared
+  scantype = ""
+  sbom_path = ""
   if len(sys.argv) == 4:
     sbom_path = sys.argv[3]
     scantype = sys.argv[2][2:]
@@ -104,14 +107,9 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
       for file in [f for f in files if os.path.splitext(f)[1][1:] not in FILTERED_EXT]:
         files_index += 1
         path = os.path.join(root, file)
-        files_conversion[str(files_index)] = path
-        try:
-          with open(path) as f:
-            contents = f.read()
-            wfp += wfp_for_file(files_index, contents.encode())
-        except:
-          print("Ignoring binary file: %s" % path, sys.exc_info()[0])
-
+        files_conversion[str(files_index)] = path          
+        wfp += wfp_for_file(files_index, path)
+        
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   form_data = {}
@@ -223,21 +221,29 @@ def normalize(byte):
   return 0
 
 
-def wfp_for_file(file: str, contents: bytes) -> str:
+def wfp_for_file(file: str, path: str) -> str:
   """ Returns the WFP for a file by executing the winnowing algorithm over its contents.
 
   Parameters
   ----------
   file: str
     The name of the file
-  contents : bytes
+  path : str
     The full contents of the file as a byte array.
   """
+  contents = None
+  binary = False
+  
+  with open(path, 'rb') as f:
+    contents = f.read()
+   
   file_md5 = hashlib.md5(
       contents).hexdigest()
   # Print file line
   wfp = 'file={0},{1},{2}\n'.format(file_md5, len(contents), file)
-
+  # We don't process snippets for binaries.
+  if is_binary(path):
+    return wfp
   # Initialize variables
   gram = ""
   window = []
