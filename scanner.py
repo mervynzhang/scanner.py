@@ -4,6 +4,7 @@
 # Use of this source code is governed by a BSD-style
 # license that can be found in the LICENSE file.
 
+import argparse
 from pathlib import Path
 import json
 from json.decoder import JSONDecodeError
@@ -18,7 +19,7 @@ from crc32c import crc32
 
 # List of extensions that are ignored
 FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "gif", "md", "test", "cfg", "pdf",
-                "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico"]
+                "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico", "wfp"]
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules"]
 
@@ -28,27 +29,27 @@ SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
-def print_usage():
-  print("USAGE: scanner.py DIR [--ignore|identify|blacklist SBOM.json]")
-  print("Where SBOM.json is the path to a valid CycloneDX or SPDX 2.2 document")
-  exit(1)
-
 
 def main():
-  # Check for valid directory
-  if (len(sys.argv) < 2):
-    print_usage()
-  scan_dir = sys.argv[1]
-  print("Scanning directory: %s" % scan_dir)
-  if not scan_dir or not os.path.isdir(scan_dir):
-    print("Invalid directory: %s" % scan_dir)
-    print_usage()
-
-    # Check for SCANOSS Key
-  home = Path.home()
   
-  scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
+  parser = argparse.ArgumentParser(description='Simple scanning agains SCANOSS API.')
 
+
+  parser.add_argument('scan_dir', metavar='DIR', type=str, nargs='?',
+                    help='A folder to scan')
+  parser.add_argument('--wfp',  type=str,
+                    help='Scan a WFP File')
+  parser.add_argument('--ignore',  type=str,
+                      help='Scan and ignore components in SBOM file')
+  parser.add_argument('--identify', nargs=1, type=str,
+                      help='Scan and identify components in SBOM file')
+  parser.add_argument('--blacklist', nargs=1, type=str,
+                      help='Scan and blacklist components in SBOM file')
+
+  args = parser.parse_args()
+  # Check for SCANOSS Key
+  home = Path.home()
+  scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
   if not os.path.isfile(scanoss_keyfile):
     print("Please enter a valid SCANOSS API Key: ")
     api_key = input()
@@ -58,20 +59,35 @@ def main():
   # Read key from file
   with open(scanoss_keyfile) as f:
     api_key = f.readline().strip()
+
+  
   # Check if scan type has been declared
+
   scantype = ""
+  
   sbom_path = ""
-  if len(sys.argv) == 4:
-    sbom_path = sys.argv[3]
-    scantype = sys.argv[2][2:]
-    if scantype not in SCAN_TYPES:
-      print("ERROR: Invalid scan type: ", scantype)
-      print_usage()
-      exit(1)
-    print("scan type: %s, SBOM path: %s" % (scantype, sbom_path))
+  if args.ignore:
+    scantype = 'ignore'
+    sbom_path = args.ignore
+  elif args.identify:
+    scantype = 'identify'
+    sbom_path = args.identify
+  elif args.blacklist:
+    scantype = 'blacklist'
+    sbom_path = args.blacklist
+
   
   # Perform the scan
-  scan_folder(scan_dir, api_key, scantype, sbom_path)
+  if args.scan_dir:
+    print("Scanning directory: %s" % args.scan_dir)
+    if not os.path.isdir(args.scan_dir):
+      print("Invalid directory: %s" % args.scan_dir)
+      parser.print_help()
+      exit(1)
+    scan_folder(args.scan_dir, api_key, scantype, sbom_path)
+  elif args.wfp:
+    print("Scanning wfp file: ", args.wfp)
+    scan_wfp(args.wfp,api_key, scantype, sbom_path)
 
 
 def valid_folder(folder):
@@ -109,19 +125,34 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
         path = os.path.join(root, file)
         files_conversion[str(files_index)] = path          
         wfp += wfp_for_file(files_index, path)
-        
+      
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
+  print("Saved generated WFP File in 'scan.wfp'")
+  json_resp = do_scan(wfp, api_key, scantype, sbom_path)
+  # Decode file names
+  decoded_json = {files_conversion[k]: v for (k, v) in json_resp.items()}
+  print(json.dumps(decoded_json, indent=4))
+
+
+def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str):
+  with open(wfp_file) as f:
+    wfp = f.read()
+    json_resp = do_scan(wfp, api_key, scantype, sbom_path)
+    print(json.dumps(json_resp, indent=4))
+
+
+def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str):
   form_data = {}
   if scantype:
     with open(sbom_path) as f:
       sbom = f.read()
-    form_data = {'type' : scantype, 'assets': sbom}
-  print("Saved generated WFP File in 'scan.wfp'")
+    form_data = {'type': scantype, 'assets': sbom}
+  
   headers = {'X-Session': api_key}
   scan_files = {
       'file': ("%s.wfp" % uuid.uuid1().hex, wfp)}
-  
+
   r = requests.post(SCANOSS_SCAN_URL, files=scan_files, data=form_data,
                     headers=headers)
   if r.status_code >= 400:
@@ -130,15 +161,15 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
     exit(1)
   try:
     json_resp = r.json()
+    return json_resp
   except JSONDecodeError:
 
     print("The SCANOSS API returned an invalid JSON")
-    with open('bad_json.txt','w') as f:
+    with open('bad_json.txt', 'w') as f:
       f.write(r.text)
     exit(1)
   # Decode file names
-  decoded_json = {files_conversion[k]: v for (k, v) in json_resp.items()}
-  print(json.dumps(decoded_json, indent=4))
+  
 
 
 """
