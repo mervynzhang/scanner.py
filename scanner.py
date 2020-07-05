@@ -17,6 +17,13 @@ import uuid
 import hashlib
 from crc32c import crc32
 
+# 64k Max post size
+MAX_POST_SIZE = 64 * 1024
+
+RESULT_FILE = "scan-result.json"
+
+WFP_FILE_START = "file="
+
 # List of extensions that are ignored
 FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "gif", "md", "test", "cfg", "pdf",
                 "properties", "jpg", "vim", "sql", "result", "template", 'tiff', 'bmp', 'DS_Store', 'eot', 'otf', 'ttf', 'woff', 'rgb', 'conf', "whl", "o", "ico", "wfp"]
@@ -45,6 +52,7 @@ def main():
                       help='Scan and identify components in SBOM file')
   parser.add_argument('--blacklist', nargs=1, type=str,
                       help='Scan and blacklist components in SBOM file')
+  parser.add_argument('--output', '-o',nargs=1, type=str, help='Optional name for the result file.')
 
   args = parser.parse_args()
   # Check for SCANOSS Key
@@ -76,6 +84,8 @@ def main():
     scantype = 'blacklist'
     sbom_path = args.blacklist
 
+  if args.output:
+    RESULT_FILE = args.output
   
   # Perform the scan
   if args.scan_dir:
@@ -128,19 +138,59 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
       
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
-  print("Saved generated WFP File in 'scan.wfp'")
-  json_resp = do_scan(wfp, api_key, scantype, sbom_path)
-  # Decode file names
-  decoded_json = {files_conversion[k]: v for (k, v) in json_resp.items()}
-  print(json.dumps(decoded_json, indent=4))
+  scan_wfp('scan.wfp', api_key, scantype,
+                       sbom_path, files_conversion)
+  
 
 
-def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str):
+def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None):
+  file_count = count_files_in_wfp_file(wfp_file)
+  print("Scanning %s files" % file_count)
+  cur_files = 0
+  cur_size = 0
+  wfp = ""
+  with open(RESULT_FILE,"w") as rf:
+    rf.write("{\n")
   with open(wfp_file) as f:
-    wfp = f.read()
-    json_resp = do_scan(wfp, api_key, scantype, sbom_path)
-    print(json.dumps(json_resp, indent=4))
+    for line in f:
+      wfp += "\n" + line
+      cur_size += len(line.encode('utf-8'))
+      if WFP_FILE_START in line:
+        cur_files += 1
+        if cur_size >= MAX_POST_SIZE:
+          print("Scanned %d/%d files" % (cur_files, file_count), end='\r')
+          # Scan current WFP and store
+          scan_resp = do_scan(wfp, api_key, scantype, sbom_path)
+          with open(RESULT_FILE,"a") as rf:
+            for key, value in scan_resp.items():
+              file_key = files_conversion[key] if files_conversion else key
+              rf.write("\"%s\":%s,\n" % (file_key, json.dumps(value, indent=4)))
+          cur_size = 0
+          wfp = ""
+  if wfp:
+    scan_resp = do_scan(wfp, api_key, scantype, sbom_path)
+    first = True
+    with open(RESULT_FILE, "a") as rf:
+      for key, value in scan_resp.items():
+        file_key = files_conversion[key] if files_conversion else key
+        if first:
+          rf.write("\"%s\":%s\n" % (file_key, json.dumps(value, indent=4)))
+          first = False
+        else:
+          rf.write(",\"%s\":%s\n" % (file_key, json.dumps(value, indent=4)))
+  with open(RESULT_FILE,"a") as rf:
+    rf.write("}")
+  print("Scan finished successfully")
 
+ 
+
+def count_files_in_wfp_file(wfp_file: str):
+  count = 0
+  with open(wfp_file) as f:
+    for line in f:
+      if "file=" in line:
+        count += 1
+  return count
 
 def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str):
   form_data = {}
@@ -163,7 +213,6 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str):
     json_resp = r.json()
     return json_resp
   except JSONDecodeError:
-
     print("The SCANOSS API returned an invalid JSON")
     with open('bad_json.txt', 'w') as f:
       f.write(r.text)
