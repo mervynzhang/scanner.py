@@ -135,7 +135,9 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
         path = os.path.join(root, file)
         files_conversion[str(files_index)] = path          
         wfp += wfp_for_file(files_index, path)
-      
+        if files_index % 100 == 0:
+          print("Generating WFP: %d files processed" % files_index, end='\r')
+  print()  
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
@@ -180,6 +182,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
           rf.write(",\"%s\":%s\n" % (file_key, json.dumps(value, indent=4)))
   with open(RESULT_FILE,"a") as rf:
     rf.write("}")
+  print()
   print("Scan finished successfully")
 
  
