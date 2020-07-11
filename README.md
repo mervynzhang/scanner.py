@@ -1,6 +1,6 @@
 # SCANOSS Scanner
 
-The SCANOSS Scanner is a simple Python script performs a scan of a folder using SCANOSS API.
+The SCANOSS Scanner is a simple Python script performs a scan of a folder or a WFP file using SCANOSS API. 
 
 ## Usage
 
@@ -13,6 +13,30 @@ python3 scanner.py /path/to/dir/to/scan
 ```
 
 `scanner.py` generates a WFP file that is saved as `scan_wfp` in the current folder. This file is uploaded to the SCANOSS API, to perform a scan and return the output as in json format.
+
+The complete usage can be seen by using the `-h` flag.
+
+```
+% ./scanner.py -h
+usage: scanner.py [-h] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY]
+                  [--blacklist BLACKLIST] [--output OUTPUT]
+                  [DIR]
+
+Simple scanning agains SCANOSS API.
+
+positional arguments:
+  DIR                   A folder to scan
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --wfp WFP             Scan a WFP File
+  --ignore IGNORE       Scan and ignore components in SBOM file
+  --identify IDENTIFY   Scan and identify components in SBOM file
+  --blacklist BLACKLIST
+                        Scan and blacklist components in SBOM file
+  --output OUTPUT, -o OUTPUT
+                        Optional name for the result file.
+```
 
 ## Winnowing
 
