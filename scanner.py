@@ -52,7 +52,8 @@ def main():
                       help='Scan and identify components in SBOM file')
   parser.add_argument('--blacklist', nargs=1, type=str,
                       help='Scan and blacklist components in SBOM file')
-  parser.add_argument('--output', '-o',nargs=1, type=str, help='Optional name for the result file.')
+  parser.add_argument('--output', '-o', nargs=1, type=str, help='Optional name for the result file.')
+  parser.add_argument('--format', '-f', nargs=1, type=str, choices=['plain','spdx','cyclonedx'], help='Optional format of the scan result')
 
   args = parser.parse_args()
   # Check for SCANOSS Key
@@ -94,10 +95,10 @@ def main():
       print("Invalid directory: %s" % args.scan_dir)
       parser.print_help()
       exit(1)
-    scan_folder(args.scan_dir, api_key, scantype, sbom_path)
+    scan_folder(args.scan_dir, api_key, scantype, sbom_path, args.format)
   elif args.wfp:
     print("Scanning wfp file: ", args.wfp)
-    scan_wfp(args.wfp,api_key, scantype, sbom_path)
+    scan_wfp(args.wfp,api_key, scantype, sbom_path, format=args.format)
 
 
 def valid_folder(folder):
@@ -107,7 +108,7 @@ def valid_folder(folder):
   return True
 
 
-def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
+def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: str):
   """ Performs a scan of the folder given
 
   Parameters
@@ -141,11 +142,11 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str):
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
-                       sbom_path, files_conversion)
+                       sbom_path, files_conversion if not format else None, format)
   
 
 
-def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None):
+def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None, format = None):
   file_count = count_files_in_wfp_file(wfp_file)
   print("Scanning %s files" % file_count)
   cur_files = 0
@@ -162,7 +163,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
         if cur_size >= MAX_POST_SIZE:
           print("Scanned %d/%d files" % (cur_files, file_count), end='\r')
           # Scan current WFP and store
-          scan_resp = do_scan(wfp, api_key, scantype, sbom_path)
+          scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
           with open(RESULT_FILE,"a") as rf:
             for key, value in scan_resp.items():
               file_key = files_conversion[key] if files_conversion else key
@@ -170,7 +171,7 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
           cur_size = 0
           wfp = ""
   if wfp:
-    scan_resp = do_scan(wfp, api_key, scantype, sbom_path)
+    scan_resp = do_scan(wfp, api_key, scantype, sbom_path, format)
     first = True
     with open(RESULT_FILE, "a") as rf:
       for key, value in scan_resp.items():
@@ -195,13 +196,14 @@ def count_files_in_wfp_file(wfp_file: str):
         count += 1
   return count
 
-def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str):
+def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
   form_data = {}
   if scantype:
     with open(sbom_path) as f:
       sbom = f.read()
     form_data = {'type': scantype, 'assets': sbom}
-  
+  if format:
+    form_data['format'] = format
   headers = {'X-Session': api_key}
   scan_files = {
       'file': ("%s.wfp" % uuid.uuid1().hex, wfp)}
