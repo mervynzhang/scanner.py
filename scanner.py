@@ -30,15 +30,15 @@ FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules", "/vendor"]
 
-
-SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else "https://api.scanoss.co.uk/api/scan/direct"
+DEFAULT_URL="https://openkb.scanoss.com/api/scan/direct"
+SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else DEFAULT_URL
 SCANOSS_KEY_FILE = ".scanoss-key"
 
 SCAN_TYPES = ['ignore', 'identify', 'blacklist']
 
 
 def main():
-  
+  api_key = None
   parser = argparse.ArgumentParser(description='Simple scanning agains SCANOSS API.')
 
 
@@ -59,16 +59,11 @@ def main():
   # Check for SCANOSS Key
   home = Path.home()
   scanoss_keyfile = str(home.joinpath(SCANOSS_KEY_FILE))
-  if not os.path.isfile(scanoss_keyfile):
-    print("Please enter a valid SCANOSS API Key: ")
-    api_key = input()
-    with open(scanoss_keyfile, "w") as f:
-      f.write(api_key)
-
-  # Read key from file
-  with open(scanoss_keyfile) as f:
-    api_key = f.readline().strip()
-
+  if os.path.isfile(scanoss_keyfile):
+    # Read key from file
+    with open(scanoss_keyfile) as f:
+      api_key = f.readline().strip()
+  
   
   # Check if scan type has been declared
 
@@ -204,7 +199,9 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
     form_data = {'type': scantype, 'assets': sbom}
   if format:
     form_data['format'] = format
-  headers = {'X-Session': api_key}
+  headers = {}
+  if api_key:
+  headers['X-Session'] = api_key
   scan_files = {
       'file': ("%s.wfp" % uuid.uuid1().hex, wfp)}
 
