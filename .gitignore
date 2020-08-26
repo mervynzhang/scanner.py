@@ -1,2 +1,3 @@
 *.wfp
 *-result.json
+.vscode/
