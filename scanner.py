@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: BSD-3-Clause
-# Copyright (C) 2017-2020, SCANOSS Ltd. All rights reserved.
-# Use of this source code is governed by a BSD-style
-# license that can be found in the LICENSE file.
+# SPDX-License-Identifier: GPL-2.0-or-later
+# 
+#   Copyright (C) 2018-2020 SCANOSS LTD
+#  
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 2 of the License, or
+#   (at your option) any later version.
+#  
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#  
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#  
 
 import argparse
 from pathlib import Path
@@ -201,7 +214,7 @@ def do_scan(wfp: str, api_key: str, scantype: str, sbom_path: str, format: str):
     form_data['format'] = format
   headers = {}
   if api_key:
-  headers['X-Session'] = api_key
+    headers['X-Session'] = api_key
   scan_files = {
       'file': ("%s.wfp" % uuid.uuid1().hex, wfp)}
 
