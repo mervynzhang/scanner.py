@@ -318,13 +318,16 @@ def normalize(byte):
   return 0
 
 
-def skip_snippets(src: str) -> bool:
+def skip_snippets(src: str, file: str) -> bool:
   if src[0] == "{":
     return True
   prefix = src[0:5].lower()
   if prefix.startswith("<?xml") or prefix.startswith("<html"):
+    print("Skipping snippet analysis due to xml/html file: ", file)
     return True
-  if len(src.splitlines()[0]) > MAX_LONG_LINE_CHARS:
+  index = src.index('\n') if '\n' in src else len(src)
+  if len(src[0:src.index('\n')]) > MAX_LONG_LINE_CHARS:
+    print("Skipping snippet analysis due to long line in file: ", file)
     return True
   return False
 
@@ -350,7 +353,7 @@ def wfp_for_file(file: str, path: str) -> str:
   # Print file line
   wfp = 'file={0},{1},{2}\n'.format(file_md5, len(contents), file)
   # We don't process snippets for binaries.
-  if is_binary(path) or skip_snippets(str(contents)):
+  if is_binary(path) or skip_snippets(contents.decode(), file):
     return wfp
   # Initialize variables
   gram = ""
