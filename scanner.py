@@ -45,7 +45,7 @@ FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules", "/vendor"]
 
-DEFAULT_URL="https://openkb.scanoss.com/api/scan/direct"
+DEFAULT_URL="https://osskb.or/api/scan/direct"
 SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else DEFAULT_URL
 SCANOSS_KEY_FILE = ".scanoss-key"
 
@@ -135,7 +135,7 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
 
   wfp = ''
   # This is a dictionary that is used to perform a lookup of a file name using the corresponding file index
-  files_conversion = {}
+  files_conversion = {} if not format else None
   # We assign a number to each of the files. This avoids sending the file names to SCANOSS API,
   # thus hiding the names and the structure of the project from SCANOSS API.
   files_index = 0
@@ -144,21 +144,24 @@ def scan_folder(dir: str, api_key: str, scantype: str, sbom_path: str, format: s
       for file in [f for f in files if os.path.splitext(f)[1][1:] not in FILTERED_EXT]:
         files_index += 1
         path = os.path.join(root, file)
-        files_conversion[str(files_index)] = path          
-        wfp += wfp_for_file(files_index, path)
+        if files_conversion:
+          files_conversion[str(files_index)] = path          
+          wfp += wfp_for_file(files_index, path)
+        else:
+          wfp += wfp_for_file(file, path)
         if files_index % 100 == 0:
           print("Generating WFP: %d files processed" % files_index, end='\r')
-  print()  
+  print()
   with open('scan.wfp', 'w') as f:
     f.write(wfp)
   scan_wfp('scan.wfp', api_key, scantype,
-                       sbom_path, files_conversion if not format else None, format)
+                       sbom_path, files_conversion, format)
   
 
 
 def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_conversion = None, format = None):
   file_count = count_files_in_wfp_file(wfp_file)
-  print("Scanning %s files" % file_count)
+  print("Scanning %s files with format %s" % (file_count, format))
   cur_files = 0
   cur_size = 0
   wfp = ""
@@ -195,8 +198,6 @@ def scan_wfp(wfp_file: str, api_key: str, scantype: str, sbom_path: str, files_c
     rf.write("}")
   print()
   print("Scan finished successfully")
-
- 
 
 def count_files_in_wfp_file(wfp_file: str):
   count = 0
