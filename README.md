@@ -18,9 +18,7 @@ The complete usage can be seen by using the `-h` flag.
 
 ```
 % ./scanner.py -h
-usage: scanner.py [-h] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY]
-                  [--blacklist BLACKLIST] [--output OUTPUT]
-                  [DIR]
+usage: scanner.py [-h] [--wfp WFP] [--ignore IGNORE] [--identify IDENTIFY] [--blacklist BLACKLIST] [--output OUTPUT] [--format {plain,spdx,cyclonedx}] [DIR]
 
 Simple scanning agains SCANOSS API.
 
@@ -36,7 +34,13 @@ optional arguments:
                         Scan and blacklist components in SBOM file
   --output OUTPUT, -o OUTPUT
                         Optional name for the result file.
+  --format {plain,spdx,cyclonedx}, -f {plain,spdx,cyclonedx}
+                        Optional format of the scan result
 ```
+
+### Scanning URL
+
+By Default, `scanner.py` uses the API URL endpoint for [SCANOSS OSS KB](https://osskb.org): https://osskb.or/api/scan/direct. You can change this by setting the environment variable `SCANOSS_SCAN_URL` to the appropriate SCANOSS API Endpoint.
 
 ## Winnowing
 
