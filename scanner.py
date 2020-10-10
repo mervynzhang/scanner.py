@@ -45,7 +45,7 @@ FILTERED_EXT = ["", "png", "html", "xml", "svg", "yaml", "yml", "txt", "json", "
 
 FILTERED_DIRS = ["/.git/", "/.svn/", "/.eggs/", "__pycache__", "/node_modules", "/vendor"]
 
-DEFAULT_URL="https://osskb.or/api/scan/direct"
+DEFAULT_URL="https://osskb.org/api/scan/direct"
 SCANOSS_SCAN_URL = os.environ.get("SCANOSS_SCAN_URL") if os.environ.get("SCANOSS_SCAN_URL") else DEFAULT_URL
 SCANOSS_KEY_FILE = ".scanoss-key"
 
