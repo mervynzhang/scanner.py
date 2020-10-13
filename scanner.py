@@ -320,6 +320,8 @@ def normalize(byte):
 
 
 def skip_snippets(src: str, file: str) -> bool:
+  if len(src) == 0:
+    return True  
   if src[0] == "{":
     return True
   prefix = src[0:5].lower()
